@@ -1,9 +1,0 @@
-faiss-cpu>=1.8.0
-gradio>=4.44.0
-numpy>=1.26.0
-Pillow>=10.0.0
-PyMuPDF>=1.24.0
-pytesseract>=0.3.10
-sentence-transformers>=3.0.0
-torch>=2.2.0
-transformers>=4.44.0
