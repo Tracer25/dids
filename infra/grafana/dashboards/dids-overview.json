@@ -1,0 +1,58 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showThresholdLabels": false, "showThresholdMarkers": true},
+      "pluginVersion": "11.6.1",
+      "targets": [{"expr": "dids_server_alerts_received_total", "refId": "A"}],
+      "title": "Alerts Received (Total)",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "id": 2,
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showThresholdLabels": false, "showThresholdMarkers": true},
+      "pluginVersion": "11.6.1",
+      "targets": [{"expr": "dids_server_alerts_publish_failed_total", "refId": "A"}],
+      "title": "Kafka Publish Failures", 
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 8},
+      "id": 3,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "single"}},
+      "pluginVersion": "11.6.1",
+      "targets": [
+        {"expr": "rate(dids_server_alerts_received_total[1m])", "legendFormat": "received/sec", "refId": "A"},
+        {"expr": "rate(dids_server_alerts_published_total[1m])", "legendFormat": "published/sec", "refId": "B"},
+        {"expr": "rate(dids_server_alerts_malformed_total[1m])", "legendFormat": "malformed/sec", "refId": "C"}
+      ],
+      "title": "Server Alert Rates",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 40,
+  "style": "dark",
+  "tags": ["dids"],
+  "templating": {"list": []},
+  "time": {"from": "now-15m", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "DIDS Overview",
+  "version": 1,
+  "weekStart": ""
+}

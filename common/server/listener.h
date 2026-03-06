@@ -2,6 +2,8 @@
 #define LISTENER_H
 
 #include "aggregator.h"
+#include "kafka_producer.h"
+#include "metrics.h"
 #include <string>
 #include <atomic>
 
@@ -14,7 +16,7 @@
 class Listener {
 public:
     // Pass the port to bind on and a reference to the shared aggregator.
-    Listener(int port, Aggregator& aggregator);
+    Listener(int port, Aggregator& aggregator, KafkaProducer* kafka, Metrics* metrics);
     ~Listener();
 
     // Creates the socket, binds it, and starts listening.
@@ -37,6 +39,8 @@ private:
     int        port_;
     int        server_fd_;       // the server-side listening socket
     Aggregator& aggregator_;     // shared — access is guarded inside Aggregator
+    KafkaProducer* kafka_;       // optional kafka publisher
+    Metrics* metrics_;           // optional metrics collector
     std::atomic<bool> running_;  // thread-safe flag to stop the loop
 };
 

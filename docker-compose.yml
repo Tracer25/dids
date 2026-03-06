@@ -1,0 +1,105 @@
+services:
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v25.1.2
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - '1'
+      - --memory
+      - 1G
+      - --reserve-memory
+      - 0M
+      - --check=false
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:9092
+      - --set
+      - redpanda.auto_create_topics_enabled=true
+    ports:
+      - "9092:9092"
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.1
+    environment:
+      CLICKHOUSE_DB: dids
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ""
+    ports:
+      - "8123:8123"
+      - "9001:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+
+  clickhouse-init:
+    image: clickhouse/clickhouse-server:25.1
+    depends_on:
+      - clickhouse
+      - redpanda
+    volumes:
+      - ./infra/clickhouse/init.sql:/init.sql:ro
+    entrypoint: ["/bin/bash", "-lc"]
+    command: >
+      'for i in {1..60}; do
+        clickhouse-client --host clickhouse --query "SELECT 1" && break;
+        sleep 2;
+      done;
+      clickhouse-client --host clickhouse --multiquery < /init.sql'
+    restart: "no"
+
+  dids-server:
+    build:
+      context: .
+      dockerfile: common/server/Dockerfile
+    depends_on:
+      - redpanda
+      - clickhouse-init
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_TOPIC: alerts.raw
+    ports:
+      - "9000:9000"
+      - "9464:9464"
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.126.0
+    command: ["--config=/etc/otel-collector/config.yaml"]
+    volumes:
+      - ./infra/otel/collector-config.yaml:/etc/otel-collector/config.yaml:ro
+    depends_on:
+      - dids-server
+    ports:
+      - "8889:8889"
+
+  prometheus:
+    image: prom/prometheus:v3.3.0
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - dids-server
+      - otel-collector
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.6.1
+    environment:
+      GF_INSTALL_PLUGINS: grafana-clickhouse-datasource
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./infra/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./infra/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+      - clickhouse
+    ports:
+      - "3000:3000"
+
+volumes:
+  clickhouse_data:

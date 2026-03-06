@@ -9,8 +9,8 @@
 #include <sys/socket.h>   // socket(), bind(), listen(), accept(), recv()
 #include <netinet/in.h>   // sockaddr_in, INADDR_ANY
 
-Listener::Listener(int port, Aggregator& aggregator)
-    : port_(port), server_fd_(-1), aggregator_(aggregator), running_(false) {}
+Listener::Listener(int port, Aggregator& aggregator, KafkaProducer* kafka, Metrics* metrics)
+    : port_(port), server_fd_(-1), aggregator_(aggregator), kafka_(kafka), metrics_(metrics), running_(false) {}
 
 Listener::~Listener() {
     stop();
@@ -82,6 +82,7 @@ void Listener::run() {
         std::string client_ip(ip_buf);
 
         std::cout << "[Server] Agent connected from " << client_ip << std::endl;
+        if (metrics_) metrics_->inc_connections();
 
         // detach() means we don't need to call join() later — the thread
         // cleans itself up when handle_client() returns.
@@ -144,6 +145,7 @@ void Listener::handle_client(int client_fd, std::string client_ip) {
             if (!alert.is_valid()) {
                 std::cerr << "[Server] Malformed alert from " << client_ip
                           << ": " << line << std::endl;
+                if (metrics_) metrics_->inc_alerts_malformed();
                 continue;
             }
 
@@ -154,9 +156,19 @@ void Listener::handle_client(int client_fd, std::string client_ip) {
                       << "  time="        << alert.timestamp
                       << std::endl;
 
+            if (metrics_) metrics_->inc_alerts_received();
             aggregator_.add_alert(alert);
+
+            if (kafka_ && kafka_->enabled()) {
+                if (kafka_->publish_line(line)) {
+                    if (metrics_) metrics_->inc_alerts_published();
+                } else {
+                    if (metrics_) metrics_->inc_alerts_publish_failed();
+                }
+            }
         }
     }
 
+    if (metrics_) metrics_->inc_disconnections();
     close(client_fd);
 }
